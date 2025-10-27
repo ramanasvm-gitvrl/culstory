@@ -8,6 +8,7 @@ from gtts import gTTS
 from PIL import Image
 import streamlit as st
 from openai import OpenAI
+from mutagen.mp3 import MP3
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -134,16 +135,14 @@ def generate_audio(text: str, language_code: str) -> Optional[str]:
 
 
 def get_audio_duration(audio_path: str) -> float:
-    """Return audio duration in seconds."""
+    """Return audio duration in seconds using mutagen (works on Streamlit Cloud)."""
     try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
-            capture_output=True, text=True
-        )
-        return float(result.stdout.strip())
-    except Exception:
+        audio = MP3(audio_path)
+        return audio.info.length
+    except Exception as e:
+        st.warning(f"⚠️ Could not determine audio duration using mutagen: {e}")
         return None
+
 
 
 def create_slideshow(image_files: List[str], audio_file: str, output_file: str = "story_video.mp4") -> Optional[str]:
