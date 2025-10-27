@@ -1,0 +1,7 @@
+openai
+streamlit
+requests
+gtts
+Pillow
+python-dotenv
+moviepy==1.0.3
