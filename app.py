@@ -72,7 +72,7 @@ def generate_story_from_prompt(prompt: str) -> str:
 
 
 def extract_keywords(story_text: str) -> List[str]:
-    """Extract main keywords (characters, settings, themes)."""
+    """Extract main keywords (characters, settings, themes) with fallback."""
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -83,9 +83,22 @@ def extract_keywords(story_text: str) -> List[str]:
             max_tokens=150,
         )
         raw_output = response.choices[0].message.content.strip()
-        st.write("🔎 Raw keyword output (from model)", raw_output)
-        keywords = re.findall(r'"(.*?)"', raw_output)
-        return [kw for kw in keywords if kw]
+
+        # Clean "undefined" or extra junk
+        cleaned = raw_output.replace("undefined", "").strip("`").strip()
+        st.write("🔎 Raw keyword output (from model)", cleaned)
+
+        # Try JSON first
+        try:
+            keywords = json.loads(cleaned)
+            if isinstance(keywords, list):
+                return [str(k).strip() for k in keywords if k.strip()]
+        except json.JSONDecodeError:
+            pass  # fallback to regex if not valid JSON
+
+        # Regex fallback
+        keywords = re.findall(r'"(.*?)"', cleaned)
+        return [kw for kw in keywords if kw.strip()]
     except Exception as e:
         st.error(f"Keyword extraction failed: {e}")
         return []
