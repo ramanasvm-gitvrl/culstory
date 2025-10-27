@@ -9,6 +9,7 @@ from PIL import Image
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
+from mutagen.mp3 import MP3
 load_dotenv()
 
 # ---------- CONFIG ----------
