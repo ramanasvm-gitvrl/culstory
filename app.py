@@ -8,7 +8,6 @@ from gtts import gTTS
 from PIL import Image
 import streamlit as st
 from openai import OpenAI
-from mutagen.mp3 import MP3
 from dotenv import load_dotenv
 load_dotenv()
 
