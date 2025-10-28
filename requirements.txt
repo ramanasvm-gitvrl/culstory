@@ -1,7 +1,9 @@
+gTTS
+requests
+mutagen
+Pillow
 openai
 streamlit
-requests
-gtts
-Pillow
 python-dotenv
+ffmpeg-python
 moviepy==1.0.3
