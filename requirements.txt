@@ -7,3 +7,4 @@ streamlit
 python-dotenv
 ffmpeg-python
 moviepy==1.0.3
+imghdr-py
