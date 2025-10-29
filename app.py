@@ -9,8 +9,6 @@ from PIL import Image
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
-from mutagen.mp3 import MP3
-import imghdr
 load_dotenv()
 
 # ---------- CONFIG ----------
@@ -74,7 +72,7 @@ def generate_story_from_prompt(prompt: str) -> str:
 
 
 def extract_keywords(story_text: str) -> List[str]:
-    """Extract main keywords (characters, settings, themes) with fallback."""
+    """Extract main keywords (characters, settings, themes)."""
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -85,22 +83,9 @@ def extract_keywords(story_text: str) -> List[str]:
             max_tokens=150,
         )
         raw_output = response.choices[0].message.content.strip()
-
-        # Clean "undefined" or extra junk
-        cleaned = raw_output.replace("undefined", "").strip("`").strip()
-        st.write("🔎 Raw keyword output (from model)", cleaned)
-
-        # Try JSON first
-        try:
-            keywords = json.loads(cleaned)
-            if isinstance(keywords, list):
-                return [str(k).strip() for k in keywords if k.strip()]
-        except json.JSONDecodeError:
-            pass  # fallback to regex if not valid JSON
-
-        # Regex fallback
-        keywords = re.findall(r'"(.*?)"', cleaned)
-        return [kw for kw in keywords if kw.strip()]
+        st.write("🔎 Raw keyword output (from model)", raw_output)
+        keywords = re.findall(r'"(.*?)"', raw_output)
+        return [kw for kw in keywords if kw]
     except Exception as e:
         st.error(f"Keyword extraction failed: {e}")
         return []
@@ -136,48 +121,16 @@ def generate_audio(text: str, language_code: str) -> Optional[str]:
 
 
 def get_audio_duration(audio_path: str) -> float:
-    """Return audio duration in seconds — resilient for Streamlit Cloud."""
-    import time
-    from mutagen.mp3 import MP3
-
-    # Wait briefly to ensure the file is written (important for Streamlit Cloud)
-    for _ in range(5):
-        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-            break
-        time.sleep(0.5)
-
-    if not os.path.exists(audio_path):
-        st.warning(f"⚠️ Audio file not found: {audio_path}")
-        return None
-
-    try:
-        audio = MP3(audio_path)
-        duration = audio.info.length
-        if duration and duration > 0:
-            return duration
-    except Exception as e:
-        st.warning(f"⚠️ Mutagen failed: {e}")
-
-    # Fallback to ffprobe
+    """Return audio duration in seconds."""
     try:
         result = subprocess.run(
-            [
-                "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1", audio_path
-            ],
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
             capture_output=True, text=True
         )
-        duration_str = result.stdout.strip()
-        if duration_str:
-            return float(duration_str)
-        else:
-            st.warning("⚠️ FFprobe returned empty duration.")
-    except Exception as e:
-        st.warning(f"⚠️ FFprobe fallback failed: {e}")
-
-    return None
-
-
+        return float(result.stdout.strip())
+    except Exception:
+        return None
 
 
 def create_slideshow(image_files: List[str], audio_file: str, output_file: str = "story_video.mp4") -> Optional[str]:
@@ -195,16 +148,11 @@ def create_slideshow(image_files: List[str], audio_file: str, output_file: str =
                 f.write(f"duration {img_duration}\n")
             f.write(f"file '{image_files[-1]}'\n")
 
-        # Capture ffmpeg output to debug
-        result = subprocess.run([
+        subprocess.run([
             "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", input_txt,
             "-i", audio_file, "-c:v", "libx264", "-c:a", "aac",
             "-pix_fmt", "yuv420p", "-shortest", output_file
-        ], capture_output=True, text=True)
-
-        if result.returncode != 0:
-            st.error(f"❌ Slideshow creation failed:\n{result.stderr}")
-            return None
+        ], check=True)
 
         return output_file
     except Exception as e:
